@@ -39,14 +39,14 @@ module Test
 
           Test::Unit.run_at_start_hooks
           start_time = Time.now
+          options = @options.dup
+          options[:test_suite] = @suite
+          options[:event_listener] = lambda do |channel, value|
+            notify_listeners(channel, value)
+          end
           begin
             with_listener(result) do
-              event_listener = lambda do |channel, value|
-                notify_listeners(channel, value)
-              end
-              @options[:event_listener] = event_listener
-              @options[:test_suite] = @suite
-              @test_suite_runner_class.run_all_tests(result, @options) do |run_context|
+              @test_suite_runner_class.run_all_tests(result, options) do |run_context|
                 catch do |stop_tag|
                   result.stop_tag = stop_tag
                   notify_listeners(RESET, @suite.size)
@@ -76,7 +76,9 @@ module Test
             run
           else
             worker_context = WorkerContext.new(nil, run_context, result)
-            @suite.run(worker_context, &@options[:event_listener])
+            @suite.run(worker_context) do |channel, value|
+              notify_listeners(channel, value)
+            end
           end
         end
 
